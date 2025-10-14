@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: nova-core
+    env: python
+    buildCommand: ""
+    startCommand: python main.py
+    plan: free
+    region: singapore
