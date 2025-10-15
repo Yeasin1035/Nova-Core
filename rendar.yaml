@@ -2,7 +2,7 @@ services:
   - type: web
     name: nova-core
     env: python
-    buildCommand: ""
+    buildCommand: pip install -r requirements.txt
     startCommand: python main.py
     plan: free
-    region: singapore
+    autoDeploy: true
