@@ -1,2 +1,4 @@
-flask
-gTTS
+Flask==2.2.5
+gTTS==2.3.0
+openai==0.27.8  # optional; missing it only disables OpenAI features
+requests==2.31.0
