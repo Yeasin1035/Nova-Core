@@ -15,7 +15,7 @@ def generate_voice(text, lang='en', gender='male'):
     fp.seek(0)
     return fp
 
-# === Main Nova AI route ===
+# === Nova AI Route ===
 @app.route("/nova", methods=["POST"])
 def nova_reply():
     data = request.get_json()
@@ -26,6 +26,7 @@ def nova_reply():
     if not user_input:
         return jsonify({"error": "No input text provided"}), 400
 
+    # ChatGPT reply
     try:
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -38,27 +39,29 @@ def nova_reply():
     except Exception as e:
         reply = f"Sorry, something went wrong: {e}"
 
+    # Generate voice
     fp = generate_voice(reply, lang=lang, gender=gender)
     return send_file(fp, mimetype="audio/mp3")
 
-# === Homepage ===
+# === Root Route ===
 @app.route("/", methods=["GET"])
 def home():
-    return "✅ Nova-Core server is running and ready!"
+    return "✅ Nova-Core server is running!"
 
 # === Test Route ===
 @app.route("/test", methods=["GET"])
 def test():
-    return jsonify({
-        "status": "online",
-        "message": "Nova Core is working perfectly!",
-        "version": "1.0.0"
-    })
+    return jsonify({"message": "Server test successful!"})
 
-# === Health Check ===
-@app.route("/ping", methods=["GET"])
-def ping():
-    return "pong"
+# === Browser Voice Test ===
+@app.route("/say", methods=["GET"])
+def say():
+    text = request.args.get("text", "Hello, this is Nova Core speaking!")
+    lang = request.args.get("lang", "en")
+    gender = request.args.get("gender", "male")
+
+    fp = generate_voice(text, lang=lang, gender=gender)
+    return send_file(fp, mimetype="audio/mp3")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
