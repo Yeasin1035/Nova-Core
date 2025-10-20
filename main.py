@@ -3,65 +3,76 @@ from gtts import gTTS
 from io import BytesIO
 import openai
 import os
+import tempfile
+import speech_recognition as sr
 
 app = Flask(__name__)
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# === Helper ===
-def generate_voice(text, lang='en', gender='male'):
+# === Voice generation ===
+def generate_voice(text, lang='en'):
     tts = gTTS(text=text, lang=lang, slow=False)
     fp = BytesIO()
     tts.write_to_fp(fp)
     fp.seek(0)
     return fp
 
-# === Nova AI Route ===
-@app.route("/nova", methods=["POST"])
-def nova_reply():
-    data = request.get_json()
-    user_input = data.get("text", "")
-    lang = data.get("lang", "en")
-    gender = data.get("gender", "male")
+# === Speech to text ===
+def speech_to_text(audio_file):
+    r = sr.Recognizer()
+    with sr.AudioFile(audio_file) as source:
+        audio_data = r.record(source)
+        try:
+            text = r.recognize_google(audio_data)
+            return text
+        except Exception as e:
+            return f"[Error in speech recognition: {e}]"
 
-    if not user_input:
-        return jsonify({"error": "No input text provided"}), 400
-
-    # ChatGPT reply
+# === AI text response ===
+def ai_reply(user_text):
     try:
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are Nova, a smart, calm, and friendly AI assistant."},
-                {"role": "user", "content": user_input}
+                {"role": "user", "content": user_text}
             ]
         )
-        reply = response.choices[0].message.content.strip()
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        reply = f"Sorry, something went wrong: {e}"
+        return f"Sorry, something went wrong: {e}"
 
-    # Generate voice
-    fp = generate_voice(reply, lang=lang, gender=gender)
-    return send_file(fp, mimetype="audio/mp3")
+# === Main voice route ===
+@app.route("/nova", methods=["POST"])
+def nova_voice():
+    if 'file' in request.files:
+        # Handle audio input
+        file = request.files['file']
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+            file.save(temp_audio.name)
+            text = speech_to_text(temp_audio.name)
+        print(f"🎤 Recognized speech: {text}")
 
-# === Root Route ===
+        reply_text = ai_reply(text)
+        print(f"🤖 Nova reply: {reply_text}")
+
+        voice_fp = generate_voice(reply_text)
+        return send_file(voice_fp, mimetype="audio/mp3")
+
+    else:
+        # Handle plain text input
+        data = request.get_json(force=True)
+        user_text = data.get("text", "")
+        if not user_text:
+            return jsonify({"error": "No text provided"}), 400
+
+        reply_text = ai_reply(user_text)
+        voice_fp = generate_voice(reply_text)
+        return send_file(voice_fp, mimetype="audio/mp3")
+
 @app.route("/", methods=["GET"])
 def home():
-    return "✅ Nova-Core server is running!"
-
-# === Test Route ===
-@app.route("/test", methods=["GET"])
-def test():
-    return jsonify({"message": "Server test successful!"})
-
-# === Browser Voice Test ===
-@app.route("/say", methods=["GET"])
-def say():
-    text = request.args.get("text", "Hello, this is Nova Core speaking!")
-    lang = request.args.get("lang", "en")
-    gender = request.args.get("gender", "male")
-
-    fp = generate_voice(text, lang=lang, gender=gender)
-    return send_file(fp, mimetype="audio/mp3")
+    return "✅ Nova-Core Server with Voice Input is Running!"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
